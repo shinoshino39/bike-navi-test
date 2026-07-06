@@ -2,50 +2,111 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>自転車ナビウインカー試作</title>
   <style>
     body {
       font-family: sans-serif;
-      padding: 24px;
+      padding: 20px;
       line-height: 1.6;
+      background: #f7f7f7;
     }
+
+    h1 {
+      font-size: 24px;
+    }
+
     .card {
+      background: white;
       border: 1px solid #ccc;
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
+
+    .label {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 4px;
+    }
+
     .big {
       font-size: 28px;
       font-weight: bold;
+      color: #222;
     }
+
     button {
-      font-size: 18px;
-      padding: 12px 20px;
-      margin: 6px;
+      font-size: 17px;
+      padding: 12px 18px;
+      margin: 6px 4px;
+      border-radius: 8px;
+      border: 1px solid #999;
+      background: white;
+      cursor: pointer;
+    }
+
+    button:active {
+      background: #e0e0e0;
+    }
+
+    .status {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .small {
+      font-size: 14px;
+      color: #666;
     }
   </style>
 </head>
 <body>
+  <!-- GPS判定成功版：右折・左折表示確認済み -->
+  <!-- Bluetooth送信準備版：現在は sendCommand() で画面表示のみ -->
+
   <h1>ナビ連動ウインカー試作</h1>
 
   <div class="card">
-    <div>現在地</div>
+    <div class="label">現在地</div>
     <div id="current">取得前</div>
   </div>
 
   <div class="card">
-    <div>次の案内</div>
+    <div class="label">次の案内</div>
     <div id="next" class="big">待機中</div>
     <div id="distance">距離：---</div>
   </div>
 
   <div class="card">
+    <div class="label">GPS操作</div>
     <button onclick="startGPS()">GPS開始</button>
     <button onclick="resetRoute()">判定リセット</button>
   </div>
 
+  <div class="card">
+    <div class="label">Bluetooth操作テスト</div>
+    <button onclick="connectBLE()">ESP32接続</button>
+    <button onclick="sendCommand('L')">左折送信</button>
+    <button onclick="sendCommand('R')">右折送信</button>
+    <button onclick="sendCommand('O')">消灯</button>
+    <div class="small">
+      ※今はBluetooth未接続なので、送信予定の文字だけ表示します。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">送信ステータス</div>
+    <div id="sendStatus" class="status">未送信</div>
+  </div>
+
   <script>
+    // =========================
+    // ルート設定
+    // lat / lng は、成功した大学近くの座標に書き換える
+    // command は R が右折、L が左折
+    // =========================
     const routePoints = [
       {
         name: "1つ目の曲がり角",
@@ -61,9 +122,12 @@
       }
     ];
 
-    const triggerDistance = 40; // 40m以内で反応
+    // 反応距離。最初は60mくらいがテストしやすい
+    const triggerDistance = 60;
+
     let currentIndex = 0;
     let alreadyTriggered = false;
+    let watchId = null;
 
     function startGPS() {
       if (!navigator.geolocation) {
@@ -71,7 +135,9 @@
         return;
       }
 
-      navigator.geolocation.watchPosition(
+      document.getElementById("next").textContent = "GPS取得中";
+
+      watchId = navigator.geolocation.watchPosition(
         checkPosition,
         showError,
         {
@@ -106,16 +172,26 @@
 
         if (target.command === "R") {
           document.getElementById("next").textContent = "右折ウインカー開始";
+          sendCommand("R");
         } else if (target.command === "L") {
           document.getElementById("next").textContent = "左折ウインカー開始";
+          sendCommand("L");
         }
 
-        // 15秒後に次の地点へ進む
+        // 15秒後に消灯命令を出して、次の地点へ進む
         setTimeout(() => {
+          sendCommand("O");
+
           currentIndex++;
           alreadyTriggered = false;
-          document.getElementById("next").textContent = "次の地点へ";
+
+          if (currentIndex >= routePoints.length) {
+            document.getElementById("next").textContent = "ルート終了";
+          } else {
+            document.getElementById("next").textContent = "次の地点へ";
+          }
         }, 15000);
+
       } else if (!alreadyTriggered) {
         document.getElementById("next").textContent =
           `次は${target.command === "R" ? "右折" : "左折"}`;
@@ -141,12 +217,46 @@
     function resetRoute() {
       currentIndex = 0;
       alreadyTriggered = false;
+
       document.getElementById("next").textContent = "リセット完了";
       document.getElementById("distance").textContent = "距離：---";
+      document.getElementById("sendStatus").textContent = "未送信";
+
+      sendCommand("O");
     }
 
     function showError(error) {
       alert("GPS取得に失敗しました：" + error.message);
+    }
+
+    // =========================
+    // Bluetooth準備部分
+    // 今は実際にはBluetooth送信せず、画面に送信予定を表示する
+    // Androidでテストできるようになったら、この中身をBLE送信用に置き換える
+    // =========================
+    function connectBLE() {
+      document.getElementById("sendStatus").textContent =
+        "ESP32接続予定：AndroidでBluetoothテスト予定";
+      alert("今は接続テスト用です。AndroidでESP32接続機能を追加します。");
+    }
+
+    function sendCommand(command) {
+      let label = "";
+
+      if (command === "L") {
+        label = "左折 L";
+      } else if (command === "R") {
+        label = "右折 R";
+      } else if (command === "O") {
+        label = "消灯 O";
+      } else {
+        label = command;
+      }
+
+      document.getElementById("sendStatus").textContent =
+        `送信予定：${label}`;
+
+      console.log("送信予定:", command);
     }
   </script>
 </body>
