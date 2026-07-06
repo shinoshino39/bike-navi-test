@@ -90,6 +90,7 @@
     <button onclick="connectBLE()">ESP32接続</button>
     <button onclick="sendCommand('L')">左折送信</button>
     <button onclick="sendCommand('R')">右折送信</button>
+    <button onclick="sendCommand('B')">ブレーキ送信</button>
     <button onclick="sendCommand('O')">消灯</button>
     <div class="small">
       ※今はBluetooth未接続なので、送信予定の文字だけ表示します。
@@ -229,35 +230,116 @@
       alert("GPS取得に失敗しました：" + error.message);
     }
 
-    // =========================
-    // Bluetooth準備部分
-    // 今は実際にはBluetooth送信せず、画面に送信予定を表示する
-    // Androidでテストできるようになったら、この中身をBLE送信用に置き換える
-    // =========================
-    function connectBLE() {
+// =========================
+// Bluetooth本番送信部分
+// ESP32側のUUIDと必ず一致させる
+// =========================
+
+const DEVICE_NAME = "BikeNaviLED";
+const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
+const CHARACTERISTIC_UUID = "abcd1234-5678-90ab-cdef-1234567890ab";
+
+let bleDevice = null;
+let bleServer = null;
+let commandCharacteristic = null;
+
+async function connectBLE() {
+  try {
+    if (!navigator.bluetooth) {
+      alert("このブラウザはWeb Bluetoothに対応していません。AndroidのChromeで試してください。");
       document.getElementById("sendStatus").textContent =
-        "ESP32接続予定：AndroidでBluetoothテスト予定";
-      alert("今は接続テスト用です。AndroidでESP32接続機能を追加します。");
+        "Bluetooth非対応：Android Chromeでテストしてください";
+      return;
     }
 
-    function sendCommand(command) {
-      let label = "";
+    document.getElementById("sendStatus").textContent =
+      "ESP32を検索中...";
 
-      if (command === "L") {
-        label = "左折 L";
-      } else if (command === "R") {
-        label = "右折 R";
-      } else if (command === "O") {
-        label = "消灯 O";
-      } else {
-        label = command;
-      }
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [
+        { name: DEVICE_NAME }
+      ],
+      optionalServices: [SERVICE_UUID]
+    });
 
-      document.getElementById("sendStatus").textContent =
-        `送信予定：${label}`;
+    bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
 
-      console.log("送信予定:", command);
+    document.getElementById("sendStatus").textContent =
+      "ESP32に接続中...";
+
+    bleServer = await bleDevice.gatt.connect();
+
+    const service = await bleServer.getPrimaryService(SERVICE_UUID);
+    commandCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+    document.getElementById("sendStatus").textContent =
+      "ESP32接続済み";
+
+    console.log("BLE接続成功");
+
+  } catch (error) {
+    console.error(error);
+    document.getElementById("sendStatus").textContent =
+      "BLE接続失敗：" + error.message;
+    alert("BLE接続に失敗しました：" + error.message);
+  }
+}
+
+async function sendCommand(command) {
+  let label = "";
+
+  if (command === "L") {
+    label = "左折 L";
+  } else if (command === "R") {
+    label = "右折 R";
+  } else if (command === "O") {
+    label = "消灯 O";
+  } else if (command === "B") {
+    label = "ブレーキ B";
+  } else {
+    label = command;
+  }
+
+  // まだBluetooth接続していない場合
+  if (!commandCharacteristic) {
+    document.getElementById("sendStatus").textContent =
+      `未接続：送信予定 ${label}`;
+    console.log("未接続のため送信できません:", command);
+    return;
+  }
+
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(command);
+
+    // Chromeの対応状況に合わせて使い分け
+    if (commandCharacteristic.writeValueWithResponse) {
+      await commandCharacteristic.writeValueWithResponse(data);
+    } else {
+      await commandCharacteristic.writeValue(data);
     }
+
+    document.getElementById("sendStatus").textContent =
+      `送信済み：${label}`;
+
+    console.log("送信済み:", command);
+
+  } catch (error) {
+    console.error(error);
+    document.getElementById("sendStatus").textContent =
+      "送信失敗：" + error.message;
+  }
+}
+
+function onDisconnected() {
+  commandCharacteristic = null;
+  bleServer = null;
+
+  document.getElementById("sendStatus").textContent =
+    "ESP32との接続が切断されました";
+
+  console.log("BLE切断");
+}
   </script>
 </body>
 </html>
