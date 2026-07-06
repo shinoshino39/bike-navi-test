@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>自転車ナビウインカー試作</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 24px;
+      line-height: 1.6;
+    }
+    .card {
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .big {
+      font-size: 28px;
+      font-weight: bold;
+    }
+    button {
+      font-size: 18px;
+      padding: 12px 20px;
+      margin: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>ナビ連動ウインカー試作</h1>
+
+  <div class="card">
+    <div>現在地</div>
+    <div id="current">取得前</div>
+  </div>
+
+  <div class="card">
+    <div>次の案内</div>
+    <div id="next" class="big">待機中</div>
+    <div id="distance">距離：---</div>
+  </div>
+
+  <div class="card">
+    <button onclick="startGPS()">GPS開始</button>
+    <button onclick="resetRoute()">判定リセット</button>
+  </div>
+
+  <script>
+    const routePoints = [
+      {
+        name: "1つ目の曲がり角",
+        lat: 35.531770,
+        lng: 139.532739,
+        command: "L"
+      },
+      {
+        name: "2つ目の曲がり角",
+        lat: 35.532089,
+        lng: 139.533608,
+        command: "R"
+      }
+    ];
+
+    const triggerDistance = 40; // 40m以内で反応
+    let currentIndex = 0;
+    let alreadyTriggered = false;
+
+    function startGPS() {
+      if (!navigator.geolocation) {
+        alert("この端末ではGPSが使えません");
+        return;
+      }
+
+      navigator.geolocation.watchPosition(
+        checkPosition,
+        showError,
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 10000
+        }
+      );
+    }
+
+    function checkPosition(position) {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      document.getElementById("current").textContent =
+        `緯度：${lat.toFixed(6)} / 経度：${lng.toFixed(6)}`;
+
+      if (currentIndex >= routePoints.length) {
+        document.getElementById("next").textContent = "ルート終了";
+        document.getElementById("distance").textContent = "距離：---";
+        return;
+      }
+
+      const target = routePoints[currentIndex];
+      const distance = getDistance(lat, lng, target.lat, target.lng);
+
+      document.getElementById("distance").textContent =
+        `${target.name}まで：約${Math.round(distance)}m`;
+
+      if (distance <= triggerDistance && !alreadyTriggered) {
+        alreadyTriggered = true;
+
+        if (target.command === "R") {
+          document.getElementById("next").textContent = "右折ウインカー開始";
+        } else if (target.command === "L") {
+          document.getElementById("next").textContent = "左折ウインカー開始";
+        }
+
+        // 15秒後に次の地点へ進む
+        setTimeout(() => {
+          currentIndex++;
+          alreadyTriggered = false;
+          document.getElementById("next").textContent = "次の地点へ";
+        }, 15000);
+      } else if (!alreadyTriggered) {
+        document.getElementById("next").textContent =
+          `次は${target.command === "R" ? "右折" : "左折"}`;
+      }
+    }
+
+    function getDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371000;
+      const radLat1 = lat1 * Math.PI / 180;
+      const radLat2 = lat2 * Math.PI / 180;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(radLat1) * Math.cos(radLat2) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function resetRoute() {
+      currentIndex = 0;
+      alreadyTriggered = false;
+      document.getElementById("next").textContent = "リセット完了";
+      document.getElementById("distance").textContent = "距離：---";
+    }
+
+    function showError(error) {
+      alert("GPS取得に失敗しました：" + error.message);
+    }
+  </script>
+</body>
+</html>
