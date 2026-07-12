@@ -1,310 +1,839 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>みちびかり | ナビ連動ウインカー試作</title>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta name="theme-color" content="#f6f7f9">
+
+  <title>みちびかり｜ナビ連動ウインカー</title>
+
   <style>
     :root {
-      --bg: #0f1115;
-      --card: #171a21;
-      --card2: #1d212a;
-      --text: #f5f7fb;
-      --sub: #9aa4b2;
-      --line: #2b313d;
-      --accent: #4da3ff;
-      --success: #38d27a;
-      --warning: #ffb020;
-      --danger: #ff5d5d;
-      --shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
-      --radius: 18px;
+      --background: #f4f6f8;
+      --surface: #ffffff;
+      --surface-secondary: #f7f8fa;
+
+      --text-main: #1b1d21;
+      --text-sub: #727782;
+      --text-light: #a4a9b1;
+
+      --border: #e3e6ea;
+
+      --primary: #ff8a00;
+      --primary-light: #fff2e2;
+
+      --blue: #3478f6;
+      --blue-light: #eaf2ff;
+
+      --green: #20a464;
+      --green-light: #e8f7ef;
+
+      --red: #e5484d;
+      --red-light: #fff0f0;
+
+      --shadow:
+        0 10px 32px rgba(25, 32, 45, 0.07);
+
+      --small-shadow:
+        0 4px 14px rgba(25, 32, 45, 0.06);
+
+      --radius-large: 26px;
+      --radius-medium: 18px;
+      --radius-small: 13px;
     }
 
     * {
       box-sizing: border-box;
     }
 
+    html {
+      background: var(--background);
+    }
+
     body {
       margin: 0;
+      min-height: 100vh;
+      padding: 22px 16px 44px;
+
+      color: var(--text-main);
       background:
-        radial-gradient(circle at top, #1a2030 0%, #0f1115 45%),
-        var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-        "Hiragino Sans", "Yu Gothic", sans-serif;
-      padding: 20px 16px 40px;
+        radial-gradient(
+          circle at top right,
+          rgba(255, 138, 0, 0.08),
+          transparent 32%
+        ),
+        var(--background);
+
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        "Hiragino Sans",
+        "Yu Gothic",
+        sans-serif;
+    }
+
+    button {
+      font: inherit;
     }
 
     .app {
-      max-width: 460px;
+      width: 100%;
+      max-width: 480px;
       margin: 0 auto;
     }
 
+    /* =========================
+       ヘッダー
+    ========================= */
+
     .header {
-      margin-bottom: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding: 2px 2px 0;
     }
 
     .brand {
-      font-size: 13px;
-      letter-spacing: 0.08em;
-      color: var(--accent);
-      font-weight: 700;
-      margin-bottom: 4px;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      margin-bottom: 5px;
     }
 
-    h1 {
-      font-size: 28px;
+    .title {
       margin: 0;
-      font-weight: 800;
+      font-size: 27px;
+      line-height: 1.2;
       letter-spacing: 0.01em;
     }
 
     .subtitle {
-      margin-top: 8px;
-      color: var(--sub);
-      font-size: 14px;
+      margin-top: 7px;
+      color: var(--text-sub);
+      font-size: 13px;
     }
 
-    .hero {
-      background: linear-gradient(180deg, #1c2230 0%, #151920 100%);
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      padding: 22px 20px;
+    /* =========================
+       接続チップ
+    ========================= */
+
+    .connection-chip {
+      flex-shrink: 0;
+
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+
+      padding: 8px 11px;
+
+      color: var(--text-sub);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: var(--small-shadow);
+    }
+
+    .connection-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #bbc0c8;
+    }
+
+    .connection-chip.connected {
+      color: var(--green);
+      border-color: #ccebdc;
+      background: var(--green-light);
+    }
+
+    .connection-chip.connected .connection-dot {
+      background: var(--green);
+      box-shadow:
+        0 0 0 4px rgba(32, 164, 100, 0.12);
+    }
+
+    .connection-chip.connecting {
+      color: var(--blue);
+      border-color: #d3e3ff;
+      background: var(--blue-light);
+    }
+
+    .connection-chip.connecting .connection-dot {
+      background: var(--blue);
+      animation: pulse 1.1s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 0.35;
+      }
+
+      50% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0.35;
+      }
+    }
+
+    /* =========================
+       メイン案内カード
+    ========================= */
+
+    .navigation-card {
+      position: relative;
+      overflow: hidden;
+
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-large);
+
+      padding: 22px;
+      margin-bottom: 14px;
+
       box-shadow: var(--shadow);
-      margin-bottom: 16px;
     }
 
-    .hero-top {
+    .navigation-card::after {
+      content: "";
+      position: absolute;
+      top: -80px;
+      right: -80px;
+
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+
+      background:
+        radial-gradient(
+          circle,
+          rgba(255, 138, 0, 0.11),
+          transparent 68%
+        );
+
+      pointer-events: none;
+    }
+
+    .navigation-top {
+      position: relative;
+      z-index: 1;
+
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
+
+      margin-bottom: 18px;
+    }
+
+    .section-label {
+      color: var(--text-sub);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .progress-count {
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    /* =========================
+       左右アイコン
+    ========================= */
+
+    .direction-area {
+      position: relative;
+      z-index: 1;
+
+      display: flex;
+      align-items: center;
+      gap: 17px;
+
+      margin-bottom: 20px;
+    }
+
+    .direction-icon {
+      flex-shrink: 0;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      width: 82px;
+      height: 82px;
+
+      color: var(--text-sub);
+      background: var(--surface-secondary);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+
+      font-size: 46px;
+      font-weight: 800;
+      line-height: 1;
+
+      transition:
+        color 0.2s ease,
+        background 0.2s ease,
+        transform 0.2s ease;
+    }
+
+    .direction-icon.left,
+    .direction-icon.right {
+      color: var(--primary);
+      background: var(--primary-light);
+      border-color: #ffd7a5;
+      transform: scale(1.02);
+    }
+
+    .direction-icon.complete {
+      color: var(--green);
+      background: var(--green-light);
+      border-color: #ccebdc;
+    }
+
+    .direction-icon.stopped {
+      color: var(--red);
+      background: var(--red-light);
+      border-color: #ffd1d3;
+    }
+
+    .direction-information {
+      min-width: 0;
+    }
+
+    .next-guide {
+      margin-bottom: 7px;
+
+      font-size: 31px;
+      font-weight: 850;
+      line-height: 1.15;
+
+      overflow-wrap: anywhere;
+    }
+
+    .distance {
+      color: var(--text-sub);
+      font-size: 16px;
+      font-weight: 650;
+      line-height: 1.45;
+    }
+
+    /* =========================
+       進行状況バー
+    ========================= */
+
+    .progress-wrapper {
+      position: relative;
+      z-index: 1;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+
+      overflow: hidden;
+
+      background: #eceef1;
+      border-radius: 999px;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+
+      background:
+        linear-gradient(
+          90deg,
+          #ffad42,
+          var(--primary)
+        );
+
+      border-radius: 999px;
+      transition: width 0.35s ease;
+    }
+
+    .progress-description {
+      display: flex;
+      justify-content: space-between;
+
+      margin-top: 8px;
+
+      color: var(--text-sub);
+      font-size: 12px;
+    }
+
+    /* =========================
+       状態カード
+    ========================= */
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+
       margin-bottom: 14px;
     }
 
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 12px;
-      border-radius: 999px;
+    .mini-card {
+      min-width: 0;
+
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-medium);
+
+      padding: 16px;
+
+      box-shadow: var(--small-shadow);
+    }
+
+    .mini-card-label {
+      margin-bottom: 8px;
+
+      color: var(--text-sub);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .speed-value {
+      font-size: 31px;
+      font-weight: 850;
+      line-height: 1;
+    }
+
+    .speed-unit {
+      margin-left: 3px;
+
+      color: var(--text-sub);
       font-size: 13px;
       font-weight: 700;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.03);
-      color: var(--text);
     }
 
-    .chip-dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: #7f8a99;
+    .gps-status {
+      color: var(--text-main);
+      font-size: 15px;
+      font-weight: 750;
+      line-height: 1.45;
     }
 
-    .chip.connected .chip-dot {
-      background: var(--success);
-      box-shadow: 0 0 10px rgba(56,210,122,0.7);
-    }
-
-    .hero-label {
-      color: var(--sub);
-      font-size: 13px;
-      margin-bottom: 8px;
-    }
-
-    .hero-main {
-      font-size: 34px;
-      font-weight: 800;
-      line-height: 1.2;
-      margin-bottom: 8px;
-      color: var(--warning);
-    }
-
-    .hero-distance {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 16px;
-    }
-
-    .hero-route {
-      color: var(--sub);
-      font-size: 14px;
-      line-height: 1.5;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.04);
-      border-radius: 14px;
-      padding: 12px 14px;
-    }
-
-    .grid {
-      display: grid;
-      gap: 14px;
-    }
+    /* =========================
+       通常カード
+    ========================= */
 
     .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: var(--shadow);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-medium);
+
+      padding: 17px;
+      margin-bottom: 14px;
+
+      box-shadow: var(--small-shadow);
     }
 
-    .card h2 {
+    .card-title {
+      margin: 0 0 13px;
+
+      color: var(--text-main);
       font-size: 15px;
-      margin: 0 0 12px;
-      color: var(--sub);
-      font-weight: 700;
+      font-weight: 800;
     }
 
-    .status-text {
-      font-size: 16px;
-      font-weight: 700;
-      line-height: 1.5;
-      word-break: break-word;
-    }
-
-    .location-text {
-      color: var(--text);
+    .location {
+      color: var(--text-sub);
+      font-size: 14px;
       line-height: 1.7;
-      font-size: 15px;
+      overflow-wrap: anywhere;
     }
 
-    .button-group {
-      display: flex;
-      flex-wrap: wrap;
+    /* =========================
+       ボタン
+    ========================= */
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
 
-    button {
-      appearance: none;
-      border: none;
-      border-radius: 14px;
-      padding: 14px 16px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform 0.08s ease, opacity 0.2s ease;
-      min-height: 48px;
+    .button-full {
+      grid-column: 1 / -1;
     }
 
-    button:active {
+    .button {
+      min-height: 50px;
+      padding: 12px 14px;
+
+      border: 0;
+      border-radius: var(--radius-small);
+
+      font-size: 15px;
+      font-weight: 800;
+
+      cursor: pointer;
+
+      transition:
+        transform 0.08s ease,
+        opacity 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+
+    .button:active:not(:disabled) {
       transform: scale(0.98);
     }
 
-    .btn-primary {
-      background: var(--accent);
+    .button:disabled {
+      cursor: default;
+      opacity: 0.75;
+    }
+
+    .button-primary {
       color: white;
-      flex: 1 1 140px;
+      background:
+        linear-gradient(
+          135deg,
+          #ff9e2c,
+          var(--primary)
+        );
+
+      box-shadow:
+        0 7px 16px rgba(255, 138, 0, 0.2);
     }
 
-    .btn-secondary {
-      background: #2a3040;
+    .button-blue {
       color: white;
-      flex: 1 1 120px;
+      background: var(--blue);
+
+      box-shadow:
+        0 7px 16px rgba(52, 120, 246, 0.18);
     }
 
-    .btn-danger {
-      background: #352126;
-      color: #ffb8b8;
-      border: 1px solid rgba(255, 93, 93, 0.25);
-      flex: 1 1 120px;
+    .button-connected {
+      color: var(--green);
+      background: var(--green-light);
+      border: 1px solid #ccebdc;
+      box-shadow: none;
     }
 
-    .btn-test {
-      background: var(--card2);
-      color: white;
-      border: 1px solid var(--line);
-      flex: 1 1 calc(50% - 10px);
+    .button-secondary {
+      color: var(--text-main);
+      background: var(--surface-secondary);
+      border: 1px solid var(--border);
     }
 
-    .footer-note {
-      color: var(--sub);
-      font-size: 13px;
-      margin-top: 8px;
+    .button-danger {
+      color: var(--red);
+      background: var(--red-light);
+      border: 1px solid #ffd5d7;
+    }
+
+    .button-turn {
+      color: #c46500;
+      background: var(--primary-light);
+      border: 1px solid #ffd8aa;
+    }
+
+    .button-brake {
+      color: var(--red);
+      background: var(--red-light);
+      border: 1px solid #ffd5d7;
+    }
+
+    /* =========================
+       ステータス
+    ========================= */
+
+    .send-status {
+      min-height: 24px;
+
+      color: var(--text-sub);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.6;
+
+      overflow-wrap: anywhere;
+    }
+
+    .small-note {
+      margin-top: 11px;
+
+      color: var(--text-light);
+      font-size: 12px;
       line-height: 1.6;
     }
 
-    @media (max-width: 420px) {
-      .hero-main {
-        font-size: 28px;
+    @media (max-width: 370px) {
+      .direction-icon {
+        width: 70px;
+        height: 70px;
+        font-size: 39px;
       }
 
-      .hero-distance {
-        font-size: 18px;
+      .next-guide {
+        font-size: 27px;
+      }
+
+      .title {
+        font-size: 24px;
       }
     }
   </style>
 </head>
+
 <body>
-  <div class="app">
-    <div class="header">
-      <div class="brand">MICHIBIKARI</div>
-      <h1>ナビ連動ウインカー</h1>
-      <div class="subtitle">
-        自転車向け試作UI / GPS + Bluetooth
-      </div>
-    </div>
+  <main class="app">
 
-    <section class="hero">
-      <div class="hero-top">
-        <div>
-          <div class="hero-label">次の案内</div>
-        </div>
-        <div id="bleChip" class="chip">
-          <span class="chip-dot"></span>
-          <span id="bleChipText">未接続</span>
+    <!-- ヘッダー -->
+    <header class="header">
+      <div>
+        <div class="brand">MICHIBIKARI</div>
+        <h1 class="title">ナビ連動ウインカー</h1>
+        <div class="subtitle">
+          GPSとBLEで進行方向を後方へ伝える
         </div>
       </div>
 
-      <div id="next" class="hero-main">待機中</div>
-      <div id="distance" class="hero-distance">距離：---</div>
+      <div
+        id="connectionChip"
+        class="connection-chip"
+      >
+        <span class="connection-dot"></span>
+        <span id="connectionChipText">未接続</span>
+      </div>
+    </header>
 
-      <div class="hero-route">
-        <div><strong>現在地</strong></div>
-        <div id="current">取得前</div>
+    <!-- メインナビ -->
+    <section class="navigation-card">
+      <div class="navigation-top">
+        <div class="section-label">次の案内</div>
+
+        <div
+          id="progressCount"
+          class="progress-count"
+        >
+          1 / 2
+        </div>
+      </div>
+
+      <div class="direction-area">
+        <div
+          id="directionIcon"
+          class="direction-icon"
+        >
+          •
+        </div>
+
+        <div class="direction-information">
+          <div
+            id="next"
+            class="next-guide"
+          >
+            待機中
+          </div>
+
+          <div
+            id="distance"
+            class="distance"
+          >
+            GPSを開始してください
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-wrapper">
+        <div class="progress-track">
+          <div
+            id="progressFill"
+            class="progress-fill"
+          ></div>
+        </div>
+
+        <div class="progress-description">
+          <span>出発</span>
+          <span id="progressText">ルート未開始</span>
+          <span>到着</span>
+        </div>
       </div>
     </section>
 
-    <div class="grid">
-      <section class="card">
-        <h2>GPS操作</h2>
-        <div class="button-group">
-          <button class="btn-primary" onclick="startGPS()">GPS開始</button>
-          <button class="btn-secondary" onclick="stopGPS()">GPS停止</button>
-          <button class="btn-danger" onclick="resetRoute()">リセット</button>
+    <!-- 速度・GPS状態 -->
+    <div class="status-grid">
+      <section class="mini-card">
+        <div class="mini-card-label">現在速度</div>
+
+        <div>
+          <span
+            id="speed"
+            class="speed-value"
+          >
+            --
+          </span>
+
+          <span class="speed-unit">km/h</span>
         </div>
       </section>
 
-      <section class="card">
-        <h2>Bluetooth接続</h2>
-        <div class="button-group">
-          <button class="btn-primary" onclick="connectBLE()">ESP32接続</button>
-        </div>
-        <div class="footer-note">
-          Android版Chromeでの動作確認を推奨
-        </div>
-      </section>
+      <section class="mini-card">
+        <div class="mini-card-label">GPS状態</div>
 
-      <section class="card">
-        <h2>送信テスト</h2>
-        <div class="button-group">
-          <button class="btn-test" onclick="sendCommand('L')">左折</button>
-          <button class="btn-test" onclick="sendCommand('R')">右折</button>
-          <button class="btn-test" onclick="sendCommand('B')">ブレーキ</button>
-          <button class="btn-test" onclick="sendCommand('H')">ハザード</button>
-          <button class="btn-test" onclick="sendCommand('O')">消灯</button>
+        <div
+          id="gpsStatus"
+          class="gps-status"
+        >
+          停止中
         </div>
-      </section>
-
-      <section class="card">
-        <h2>送信ステータス</h2>
-        <div id="sendStatus" class="status-text">未接続</div>
       </section>
     </div>
-  </div>
+
+    <!-- 現在地 -->
+    <section class="card">
+      <h2 class="card-title">現在地</h2>
+
+      <div
+        id="current"
+        class="location"
+      >
+        位置情報を取得していません
+      </div>
+    </section>
+
+    <!-- GPS操作 -->
+    <section class="card">
+      <h2 class="card-title">ナビゲーション</h2>
+
+      <div class="button-grid">
+        <button
+          type="button"
+          class="button button-primary"
+          onclick="startGPS()"
+        >
+          GPS開始
+        </button>
+
+        <button
+          type="button"
+          class="button button-secondary"
+          onclick="stopGPS()"
+        >
+          GPS停止
+        </button>
+
+        <button
+          type="button"
+          class="button button-danger button-full"
+          onclick="resetRoute()"
+        >
+          ルートをリセット
+        </button>
+      </div>
+    </section>
+
+    <!-- BLE接続 -->
+    <section class="card">
+      <h2 class="card-title">ウインカー接続</h2>
+
+      <button
+        id="connectButton"
+        type="button"
+        class="button button-blue"
+        style="width: 100%;"
+        onclick="connectBLE()"
+      >
+        ESP32に接続
+      </button>
+
+      <div class="small-note">
+        Android版Chromeから接続してください。
+      </div>
+    </section>
+
+    <!-- 手動テスト -->
+    <section class="card">
+      <h2 class="card-title">ライト動作テスト</h2>
+
+      <div class="button-grid">
+        <button
+          type="button"
+          class="button button-turn"
+          onclick="sendCommand('L')"
+        >
+          ← 左折
+        </button>
+
+        <button
+          type="button"
+          class="button button-turn"
+          onclick="sendCommand('R')"
+        >
+          右折 →
+        </button>
+
+        <button
+          type="button"
+          class="button button-brake"
+          onclick="sendCommand('B')"
+        >
+          ブレーキ
+        </button>
+
+        <button
+          type="button"
+          class="button button-turn"
+          onclick="sendCommand('H')"
+        >
+          ハザード
+        </button>
+
+        <button
+          type="button"
+          class="button button-secondary button-full"
+          onclick="sendCommand('O')"
+        >
+          消灯
+        </button>
+      </div>
+    </section>
+
+    <!-- ステータス -->
+    <section class="card">
+      <h2 class="card-title">システムステータス</h2>
+
+      <div
+        id="sendStatus"
+        class="send-status"
+      >
+        ESP32に接続していません
+      </div>
+    </section>
+  </main>
 
   <script>
+    // ==================================================
+    // ルート設定
+    //
+    // nullを実際の緯度・経度に変更する
+    //
+    // 例：
+    // lat: 35.123456,
+    // lng: 139.123456,
+    //
+    // command:
+    // L = 左折
+    // R = 右折
+    // ==================================================
+
     const routePoints = [
       {
         name: "1つ目の曲がり角",
@@ -320,23 +849,139 @@
       }
     ];
 
+    // ウインカー開始距離
     const triggerDistance = 40;
+
+    // ウインカー作動時間
     const turnDuration = 15000;
 
     let currentIndex = 0;
     let alreadyTriggered = false;
+
     let watchId = null;
     let turnTimerId = null;
+
+    // 速度計算用
+    let previousPosition = null;
+    let smoothedSpeed = null;
+
+    // ==================================================
+    // BLE設定
+    // ==================================================
+
+    const DEVICE_NAME = "BikeNaviLED";
+
+    const SERVICE_UUID =
+      "12345678-1234-1234-1234-1234567890ab";
+
+    const CHARACTERISTIC_UUID =
+      "abcd1234-5678-90ab-cdef-1234567890ab";
+
+    let bleDevice = null;
+    let bleServer = null;
+    let commandCharacteristic = null;
+
+    // ==================================================
+    // 表示制御
+    // ==================================================
+
+    function setGuideDisplay(type, title, description) {
+      const icon = document.getElementById("directionIcon");
+
+      icon.className = "direction-icon";
+
+      if (type === "left") {
+        icon.textContent = "←";
+        icon.classList.add("left");
+
+      } else if (type === "right") {
+        icon.textContent = "→";
+        icon.classList.add("right");
+
+      } else if (type === "complete") {
+        icon.textContent = "✓";
+        icon.classList.add("complete");
+
+      } else if (type === "stopped") {
+        icon.textContent = "■";
+        icon.classList.add("stopped");
+
+      } else if (type === "gps") {
+        icon.textContent = "◎";
+
+      } else {
+        icon.textContent = "•";
+      }
+
+      document.getElementById("next").textContent = title;
+
+      if (description !== undefined) {
+        document.getElementById("distance").textContent =
+          description;
+      }
+    }
+
+    function updateProgressDisplay(completed = false) {
+      const total = routePoints.length;
+
+      let displayedStep;
+      let percent;
+
+      if (completed) {
+        displayedStep = total;
+        percent = 100;
+
+      } else {
+        displayedStep = Math.min(currentIndex + 1, total);
+        percent = total > 0
+          ? (currentIndex / total) * 100
+          : 0;
+      }
+
+      document.getElementById("progressCount").textContent =
+        `${displayedStep} / ${total}`;
+
+      document.getElementById("progressFill").style.width =
+        `${percent}%`;
+
+      if (completed) {
+        document.getElementById("progressText").textContent =
+          "ルート完了";
+
+      } else if (currentIndex === 0) {
+        document.getElementById("progressText").textContent =
+          "案内開始前";
+
+      } else {
+        document.getElementById("progressText").textContent =
+          `${currentIndex}地点通過`;
+      }
+    }
+
+    function setGpsStatus(text) {
+      document.getElementById("gpsStatus").textContent = text;
+    }
+
+    // ==================================================
+    // ルート検証
+    // ==================================================
 
     function validateRoutePoints() {
       return routePoints.every((point) => {
         return (
           Number.isFinite(point.lat) &&
           Number.isFinite(point.lng) &&
-          (point.command === "L" || point.command === "R")
+          (
+            point.command === "L" ||
+            point.command === "R"
+          )
         );
       });
     }
+
+    // ==================================================
+    // GPS開始
+    // ==================================================
 
     function startGPS() {
       if (!navigator.geolocation) {
@@ -345,8 +990,16 @@
       }
 
       if (!validateRoutePoints()) {
-        alert("routePointsのlatとlngを設定してください");
-        document.getElementById("next").textContent = "ルート座標未設定";
+        alert(
+          "routePointsのlatとlngに、実際の緯度・経度を入力してください"
+        );
+
+        setGuideDisplay(
+          "stopped",
+          "座標未設定",
+          "ルート座標を確認してください"
+        );
+
         return;
       }
 
@@ -355,7 +1008,19 @@
         watchId = null;
       }
 
-      document.getElementById("next").textContent = "GPS取得中";
+      previousPosition = null;
+      smoothedSpeed = null;
+
+      document.getElementById("speed").textContent = "--";
+
+      setGuideDisplay(
+        "gps",
+        "現在地を取得中",
+        "GPS信号を確認しています"
+      );
+
+      setGpsStatus("取得中");
+
       watchId = navigator.geolocation.watchPosition(
         checkPosition,
         showError,
@@ -367,6 +1032,10 @@
       );
     }
 
+    // ==================================================
+    // GPS停止
+    // ==================================================
+
     function stopGPS() {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
@@ -374,12 +1043,27 @@
       }
 
       cancelTurnTimer();
-      sendCommand("O");
-      alreadyTriggered = false;
 
-      document.getElementById("next").textContent = "GPS停止";
-      document.getElementById("distance").textContent = "距離：---";
+      alreadyTriggered = false;
+      previousPosition = null;
+      smoothedSpeed = null;
+
+      document.getElementById("speed").textContent = "--";
+
+      sendCommand("O");
+
+      setGuideDisplay(
+        "stopped",
+        "GPS停止",
+        "GPS開始を押すと案内を再開します"
+      );
+
+      setGpsStatus("停止中");
     }
+
+    // ==================================================
+    // GPS位置更新
+    // ==================================================
 
     function checkPosition(position) {
       const lat = position.coords.latitude;
@@ -388,36 +1072,142 @@
       document.getElementById("current").textContent =
         `緯度 ${lat.toFixed(6)} / 経度 ${lng.toFixed(6)}`;
 
+      setGpsStatus("測位中");
+
+      updateSpeed(position);
+
       if (currentIndex >= routePoints.length) {
         finishRoute();
         return;
       }
 
       const target = routePoints[currentIndex];
-      const distance = getDistance(lat, lng, target.lat, target.lng);
 
-      document.getElementById("distance").textContent =
-        `${target.name}まで 約${Math.round(distance)}m`;
+      const distance = getDistance(
+        lat,
+        lng,
+        target.lat,
+        target.lng
+      );
 
-      if (distance <= triggerDistance && !alreadyTriggered) {
+      updateProgressDisplay(false);
+
+      if (
+        distance <= triggerDistance &&
+        !alreadyTriggered
+      ) {
         startTurnGuide(target);
         return;
       }
 
       if (!alreadyTriggered) {
-        document.getElementById("next").textContent =
-          `次は${target.command === "R" ? "右折" : "左折"}`;
+        if (target.command === "R") {
+          setGuideDisplay(
+            "right",
+            "次は右折",
+            `${target.name}まで 約${Math.round(distance)}m`
+          );
+
+        } else {
+          setGuideDisplay(
+            "left",
+            "次は左折",
+            `${target.name}まで 約${Math.round(distance)}m`
+          );
+        }
       }
     }
+
+    // ==================================================
+    // 速度表示
+    // ==================================================
+
+    function updateSpeed(position) {
+      let speedKmh = null;
+
+      // 端末から速度が取得できる場合
+      if (
+        Number.isFinite(position.coords.speed) &&
+        position.coords.speed >= 0
+      ) {
+        speedKmh = position.coords.speed * 3.6;
+      }
+
+      // speedが取得できない場合は位置差から計算
+      if (
+        speedKmh === null &&
+        previousPosition !== null
+      ) {
+        const elapsedSeconds =
+          (
+            position.timestamp -
+            previousPosition.timestamp
+          ) / 1000;
+
+        if (elapsedSeconds > 0.5) {
+          const movedDistance = getDistance(
+            previousPosition.coords.latitude,
+            previousPosition.coords.longitude,
+            position.coords.latitude,
+            position.coords.longitude
+          );
+
+          speedKmh =
+            (movedDistance / elapsedSeconds) * 3.6;
+        }
+      }
+
+      previousPosition = position;
+
+      if (
+        speedKmh === null ||
+        !Number.isFinite(speedKmh) ||
+        speedKmh > 80
+      ) {
+        return;
+      }
+
+      if (speedKmh < 1) {
+        speedKmh = 0;
+      }
+
+      // GPSの数値変動を少し滑らかにする
+      if (smoothedSpeed === null) {
+        smoothedSpeed = speedKmh;
+
+      } else {
+        smoothedSpeed =
+          smoothedSpeed * 0.65 +
+          speedKmh * 0.35;
+      }
+
+      document.getElementById("speed").textContent =
+        smoothedSpeed.toFixed(1);
+    }
+
+    // ==================================================
+    // 右左折案内
+    // ==================================================
 
     function startTurnGuide(target) {
       alreadyTriggered = true;
 
       if (target.command === "R") {
-        document.getElementById("next").textContent = "右折";
+        setGuideDisplay(
+          "right",
+          "右折",
+          "ウインカー作動中"
+        );
+
         sendCommand("R");
-      } else if (target.command === "L") {
-        document.getElementById("next").textContent = "左折";
+
+      } else {
+        setGuideDisplay(
+          "left",
+          "左折",
+          "ウインカー作動中"
+        );
+
         sendCommand("L");
       }
 
@@ -425,18 +1215,29 @@
 
       turnTimerId = window.setTimeout(() => {
         sendCommand("O");
+
         currentIndex++;
         alreadyTriggered = false;
         turnTimerId = null;
 
+        updateProgressDisplay(false);
+
         if (currentIndex >= routePoints.length) {
           finishRoute();
+
         } else {
-          document.getElementById("next").textContent = "次の地点へ";
-          document.getElementById("distance").textContent = "距離を計算中";
+          setGuideDisplay(
+            "gps",
+            "次の地点へ",
+            "次の案内を計算しています"
+          );
         }
       }, turnDuration);
     }
+
+    // ==================================================
+    // ルート終了
+    // ==================================================
 
     function finishRoute() {
       cancelTurnTimer();
@@ -448,26 +1249,57 @@
       }
 
       alreadyTriggered = false;
-      document.getElementById("next").textContent = "ルート終了";
-      document.getElementById("distance").textContent = "距離：---";
+
+      updateProgressDisplay(true);
+
+      setGuideDisplay(
+        "complete",
+        "ルート終了",
+        "目的地に到着しました"
+      );
+
+      setGpsStatus("案内完了");
     }
+
+    // ==================================================
+    // タイマー解除
+    // ==================================================
 
     function cancelTurnTimer() {
       if (turnTimerId !== null) {
-        clearTimeout(turnTimerId);
+        window.clearTimeout(turnTimerId);
         turnTimerId = null;
       }
     }
 
+    // ==================================================
+    // ルートリセット
+    // ==================================================
+
     function resetRoute() {
       cancelTurnTimer();
+
       currentIndex = 0;
       alreadyTriggered = false;
-      sendCommand("O");
 
-      document.getElementById("next").textContent = "リセット完了";
-      document.getElementById("distance").textContent = "距離：---";
+      previousPosition = null;
+      smoothedSpeed = null;
+
+      document.getElementById("speed").textContent = "--";
+
+      sendCommand("O");
+      updateProgressDisplay(false);
+
+      setGuideDisplay(
+        "gps",
+        "リセット完了",
+        "最初の地点から案内します"
+      );
     }
+
+    // ==================================================
+    // GPSエラー
+    // ==================================================
 
     function showError(error) {
       const messages = {
@@ -476,55 +1308,125 @@
         3: "現在地の取得がタイムアウトしました"
       };
 
-      const message = messages[error.code] || error.message;
+      const message =
+        messages[error.code] || error.message;
 
-      document.getElementById("next").textContent = "GPS取得失敗";
+      setGuideDisplay(
+        "stopped",
+        "GPS取得失敗",
+        message
+      );
+
+      setGpsStatus("取得失敗");
+
       document.getElementById("sendStatus").textContent =
         `GPSエラー：${message}`;
+
+      console.error("GPSエラー:", error);
     }
+
+    // ==================================================
+    // 距離計算
+    // ==================================================
 
     function getDistance(lat1, lng1, lat2, lng2) {
       const earthRadius = 6371000;
-      const radLat1 = lat1 * Math.PI / 180;
-      const radLat2 = lat2 * Math.PI / 180;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLng = (lng2 - lng1) * Math.PI / 180;
+
+      const radLat1 =
+        lat1 * Math.PI / 180;
+
+      const radLat2 =
+        lat2 * Math.PI / 180;
+
+      const dLat =
+        (lat2 - lat1) * Math.PI / 180;
+
+      const dLng =
+        (lng2 - lng1) * Math.PI / 180;
 
       const a =
         Math.sin(dLat / 2) ** 2 +
-        Math.cos(radLat1) * Math.cos(radLat2) *
+        Math.cos(radLat1) *
+        Math.cos(radLat2) *
         Math.sin(dLng / 2) ** 2;
 
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const c =
+        2 * Math.atan2(
+          Math.sqrt(a),
+          Math.sqrt(1 - a)
+        );
+
       return earthRadius * c;
     }
 
-    const DEVICE_NAME = "BikeNaviLED";
-    const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
-    const CHARACTERISTIC_UUID = "abcd1234-5678-90ab-cdef-1234567890ab";
+    // ==================================================
+    // BLE表示状態
+    // ==================================================
 
-    let bleDevice = null;
-    let bleServer = null;
-    let commandCharacteristic = null;
+    function updateBleUI(state) {
+      const chip =
+        document.getElementById("connectionChip");
 
-    function updateBleChip(connected) {
-      const chip = document.getElementById("bleChip");
-      const text = document.getElementById("bleChipText");
+      const chipText =
+        document.getElementById("connectionChipText");
 
-      if (connected) {
+      const button =
+        document.getElementById("connectButton");
+
+      chip.className = "connection-chip";
+
+      button.disabled = false;
+
+      button.className =
+        "button button-blue";
+
+      if (state === "connecting") {
+        chip.classList.add("connecting");
+        chipText.textContent = "接続中";
+
+        button.textContent = "ESP32に接続中...";
+        button.disabled = true;
+
+      } else if (state === "connected") {
         chip.classList.add("connected");
-        text.textContent = "接続済み";
+        chipText.textContent = "接続済み";
+
+        button.textContent = "ESP32接続済み";
+        button.className =
+          "button button-connected";
+
+        button.disabled = true;
+
+      } else if (state === "disconnected") {
+        chipText.textContent = "切断";
+
+        button.textContent = "ESP32に再接続";
+        button.className =
+          "button button-blue";
+
       } else {
-        chip.classList.remove("connected");
-        text.textContent = "未接続";
+        chipText.textContent = "未接続";
+
+        button.textContent = "ESP32に接続";
+        button.className =
+          "button button-blue";
       }
     }
+
+    // ==================================================
+    // BLE接続
+    // ==================================================
 
     async function connectBLE() {
       try {
         if (!navigator.bluetooth) {
-          alert("このブラウザはWeb Bluetoothに対応していません。Android版Chromeで試してください。");
-          document.getElementById("sendStatus").textContent = "Web Bluetooth非対応";
+          alert(
+            "このブラウザはWeb Bluetoothに対応していません。Android版Chromeで試してください。"
+          );
+
+          document.getElementById("sendStatus").textContent =
+            "Web Bluetooth非対応";
+
           return;
         }
 
@@ -534,48 +1436,87 @@
           bleDevice.gatt.connected &&
           commandCharacteristic
         ) {
-          document.getElementById("sendStatus").textContent = "ESP32接続済み";
-          updateBleChip(true);
+          updateBleUI("connected");
+
+          document.getElementById("sendStatus").textContent =
+            "ESP32接続済み";
+
           return;
         }
 
-        document.getElementById("sendStatus").textContent = "ESP32を検索中...";
+        updateBleUI("connecting");
 
-        bleDevice = await navigator.bluetooth.requestDevice({
-          filters: [{ name: DEVICE_NAME }],
-          optionalServices: [SERVICE_UUID]
-        });
+        document.getElementById("sendStatus").textContent =
+          "BikeNaviLEDを検索しています";
 
-        bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
+        bleDevice =
+          await navigator.bluetooth.requestDevice({
+            filters: [
+              {
+                name: DEVICE_NAME
+              }
+            ],
+            optionalServices: [
+              SERVICE_UUID
+            ]
+          });
 
-        document.getElementById("sendStatus").textContent = "ESP32に接続中...";
-        bleServer = await bleDevice.gatt.connect();
+        bleDevice.addEventListener(
+          "gattserverdisconnected",
+          onDisconnected
+        );
 
-        const service = await bleServer.getPrimaryService(SERVICE_UUID);
-        commandCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+        document.getElementById("sendStatus").textContent =
+          "ESP32へ接続しています";
 
-        document.getElementById("sendStatus").textContent = "ESP32接続済み";
-        updateBleChip(true);
+        bleServer =
+          await bleDevice.gatt.connect();
+
+        const service =
+          await bleServer.getPrimaryService(
+            SERVICE_UUID
+          );
+
+        commandCharacteristic =
+          await service.getCharacteristic(
+            CHARACTERISTIC_UUID
+          );
+
+        updateBleUI("connected");
+
+        document.getElementById("sendStatus").textContent =
+          "ESP32との接続が完了しました";
+
+        console.log("BLE接続成功");
+
       } catch (error) {
-        console.error(error);
+        console.error("BLE接続エラー:", error);
+
         commandCharacteristic = null;
         bleServer = null;
-        updateBleChip(false);
+
+        updateBleUI("disconnected");
+
         document.getElementById("sendStatus").textContent =
           `BLE接続失敗：${error.message}`;
       }
     }
 
+    // ==================================================
+    // BLE命令送信
+    // ==================================================
+
     async function sendCommand(command) {
-      const labels = {
-        L: "左折 L",
-        R: "右折 R",
-        B: "ブレーキ B",
-        H: "ハザード H",
-        O: "消灯 O"
+      const commandLabels = {
+        L: "左折",
+        R: "右折",
+        B: "ブレーキ",
+        H: "ハザード",
+        O: "消灯"
       };
 
-      const label = labels[command] || command;
+      const label =
+        commandLabels[command] || command;
 
       const isConnected =
         bleDevice &&
@@ -585,44 +1526,78 @@
 
       if (!isConnected) {
         document.getElementById("sendStatus").textContent =
-          `未接続：送信予定 ${label}`;
-        updateBleChip(false);
+          `未接続のため「${label}」を送信できません`;
+
+        updateBleUI(
+          bleDevice ? "disconnected" : "default"
+        );
+
         return false;
       }
 
       try {
-        const data = new TextEncoder().encode(command);
+        const data =
+          new TextEncoder().encode(command);
 
-        if (typeof commandCharacteristic.writeValueWithResponse === "function") {
-          await commandCharacteristic.writeValueWithResponse(data);
-        } else if (typeof commandCharacteristic.writeValueWithoutResponse === "function") {
-          await commandCharacteristic.writeValueWithoutResponse(data);
+        if (
+          typeof commandCharacteristic
+            .writeValueWithResponse === "function"
+        ) {
+          await commandCharacteristic
+            .writeValueWithResponse(data);
+
+        } else if (
+          typeof commandCharacteristic
+            .writeValueWithoutResponse === "function"
+        ) {
+          await commandCharacteristic
+            .writeValueWithoutResponse(data);
+
         } else {
           await commandCharacteristic.writeValue(data);
         }
 
         document.getElementById("sendStatus").textContent =
           `送信済み：${label}`;
-        updateBleChip(true);
+
+        updateBleUI("connected");
+
+        console.log("送信済み:", command);
+
         return true;
+
       } catch (error) {
-        console.error(error);
+        console.error("BLE送信エラー:", error);
+
         document.getElementById("sendStatus").textContent =
           `送信失敗：${error.message}`;
-        updateBleChip(false);
+
         return false;
       }
     }
 
+    // ==================================================
+    // BLE切断
+    // ==================================================
+
     function onDisconnected() {
       commandCharacteristic = null;
       bleServer = null;
-      updateBleChip(false);
+
+      updateBleUI("disconnected");
+
       document.getElementById("sendStatus").textContent =
         "ESP32との接続が切断されました";
+
+      console.log("BLE切断");
     }
 
-    updateBleChip(false);
+    // ==================================================
+    // 初期表示
+    // ==================================================
+
+    updateBleUI("default");
+    updateProgressDisplay(false);
   </script>
 </body>
 </html>
