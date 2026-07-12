@@ -2,14 +2,19 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>自転車ナビウインカー試作</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <title>みちびかり｜自転車ナビウインカー試作</title>
+
   <style>
     body {
       font-family: sans-serif;
       padding: 20px;
       line-height: 1.6;
       background: #f7f7f7;
+      margin: 0;
     }
 
     h1 {
@@ -22,7 +27,7 @@
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 16px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
 
     .label {
@@ -54,6 +59,7 @@
     .status {
       font-weight: bold;
       color: #333;
+      overflow-wrap: anywhere;
     }
 
     .small {
@@ -62,11 +68,9 @@
     }
   </style>
 </head>
-<body>
-  <!-- GPS判定成功版：右折・左折表示確認済み -->
-  <!-- Bluetooth送信準備版：現在は sendCommand() で画面表示のみ -->
 
-  <h1>ナビ連動ウインカー試作</h1>
+<body>
+  <h1>みちびかり ナビ連動ウインカー試作</h1>
 
   <div class="card">
     <div class="label">現在地</div>
@@ -81,33 +85,71 @@
 
   <div class="card">
     <div class="label">GPS操作</div>
-    <button onclick="startGPS()">GPS開始</button>
-    <button onclick="resetRoute()">判定リセット</button>
+
+    <button type="button" onclick="startGPS()">
+      GPS開始
+    </button>
+
+    <button type="button" onclick="stopGPS()">
+      GPS停止
+    </button>
+
+    <button type="button" onclick="resetRoute()">
+      判定リセット
+    </button>
   </div>
 
   <div class="card">
     <div class="label">Bluetooth操作テスト</div>
-    <button onclick="connectBLE()">ESP32接続</button>
-    <button onclick="sendCommand('L')">左折送信</button>
-    <button onclick="sendCommand('R')">右折送信</button>
-    <button onclick="sendCommand('B')">ブレーキ送信</button>
-    <button onclick="sendCommand('O')">消灯</button>
+
+    <button type="button" onclick="connectBLE()">
+      ESP32接続
+    </button>
+
+    <button type="button" onclick="sendCommand('L')">
+      左折送信
+    </button>
+
+    <button type="button" onclick="sendCommand('R')">
+      右折送信
+    </button>
+
+    <button type="button" onclick="sendCommand('B')">
+      ブレーキ送信
+    </button>
+
+    <button type="button" onclick="sendCommand('H')">
+      ハザード送信
+    </button>
+
+    <button type="button" onclick="sendCommand('O')">
+      消灯
+    </button>
+
     <div class="small">
-      ※今はBluetooth未接続なので、送信予定の文字だけ表示します。
+      ESP32接続後、各ボタンまたはGPS判定から命令を送信します。
     </div>
   </div>
 
   <div class="card">
     <div class="label">送信ステータス</div>
-    <div id="sendStatus" class="status">未送信</div>
+    <div id="sendStatus" class="status">未接続</div>
   </div>
 
   <script>
-    // =========================
+    // ==================================================
     // ルート設定
-    // lat / lng は、成功した大学近くの座標に書き換える
-    // command は R が右折、L が左折
-    // =========================
+    //
+    // nullを実際の数値に書き換える
+    // 例：
+    // lat: 35.123456,
+    // lng: 139.123456,
+    //
+    // command
+    // L：左折
+    // R：右折
+    // ==================================================
+
     const routePoints = [
       {
         name: "1つ目の曲がり角",
@@ -123,12 +165,31 @@
       }
     ];
 
-    // 反応距離。最初は60mくらいがテストしやすい
+    // 案内開始距離
     const triggerDistance = 40;
+
+    // ウインカーを点灯させる時間
+    const turnDuration = 15000;
 
     let currentIndex = 0;
     let alreadyTriggered = false;
+
     let watchId = null;
+    let turnTimerId = null;
+
+    // ==================================================
+    // GPS
+    // ==================================================
+
+    function validateRoutePoints() {
+      return routePoints.every((point) => {
+        return (
+          Number.isFinite(point.lat) &&
+          Number.isFinite(point.lng) &&
+          (point.command === "L" || point.command === "R")
+        );
+      });
+    }
 
     function startGPS() {
       if (!navigator.geolocation) {
@@ -136,7 +197,25 @@
         return;
       }
 
-      document.getElementById("next").textContent = "GPS取得中";
+      if (!validateRoutePoints()) {
+        alert(
+          "routePointsのlatとlngに実際の緯度・経度を入力してください"
+        );
+
+        document.getElementById("next").textContent =
+          "ルート座標が未設定";
+
+        return;
+      }
+
+      // GPS開始を何度も押した場合の重複を防ぐ
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+
+      document.getElementById("next").textContent =
+        "GPS取得中";
 
       watchId = navigator.geolocation.watchPosition(
         checkPosition,
@@ -149,6 +228,24 @@
       );
     }
 
+    function stopGPS() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+
+      cancelTurnTimer();
+      sendCommand("O");
+
+      alreadyTriggered = false;
+
+      document.getElementById("next").textContent =
+        "GPS停止";
+
+      document.getElementById("distance").textContent =
+        "距離：---";
+    }
+
     function checkPosition(position) {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
@@ -157,189 +254,338 @@
         `緯度：${lat.toFixed(6)} / 経度：${lng.toFixed(6)}`;
 
       if (currentIndex >= routePoints.length) {
-        document.getElementById("next").textContent = "ルート終了";
-        document.getElementById("distance").textContent = "距離：---";
+        finishRoute();
         return;
       }
 
       const target = routePoints[currentIndex];
-      const distance = getDistance(lat, lng, target.lat, target.lng);
+
+      const distance = getDistance(
+        lat,
+        lng,
+        target.lat,
+        target.lng
+      );
 
       document.getElementById("distance").textContent =
         `${target.name}まで：約${Math.round(distance)}m`;
 
-      if (distance <= triggerDistance && !alreadyTriggered) {
-        alreadyTriggered = true;
+      if (
+        distance <= triggerDistance &&
+        !alreadyTriggered
+      ) {
+        startTurnGuide(target);
+        return;
+      }
 
-        if (target.command === "R") {
-          document.getElementById("next").textContent = "右折ウインカー開始";
-          sendCommand("R");
-        } else if (target.command === "L") {
-          document.getElementById("next").textContent = "左折ウインカー開始";
-          sendCommand("L");
-        }
+      if (!alreadyTriggered) {
+        const turnText =
+          target.command === "R" ? "右折" : "左折";
 
-        // 15秒後に消灯命令を出して、次の地点へ進む
-        setTimeout(() => {
-          sendCommand("O");
-
-          currentIndex++;
-          alreadyTriggered = false;
-
-          if (currentIndex >= routePoints.length) {
-            document.getElementById("next").textContent = "ルート終了";
-          } else {
-            document.getElementById("next").textContent = "次の地点へ";
-          }
-        }, 15000);
-
-      } else if (!alreadyTriggered) {
         document.getElementById("next").textContent =
-          `次は${target.command === "R" ? "右折" : "左折"}`;
+          `次は${turnText}`;
       }
     }
 
+    function startTurnGuide(target) {
+      alreadyTriggered = true;
+
+      if (target.command === "R") {
+        document.getElementById("next").textContent =
+          "右折ウインカー開始";
+
+        sendCommand("R");
+      }
+
+      if (target.command === "L") {
+        document.getElementById("next").textContent =
+          "左折ウインカー開始";
+
+        sendCommand("L");
+      }
+
+      cancelTurnTimer();
+
+      turnTimerId = window.setTimeout(() => {
+        sendCommand("O");
+
+        currentIndex++;
+        alreadyTriggered = false;
+        turnTimerId = null;
+
+        if (currentIndex >= routePoints.length) {
+          finishRoute();
+        } else {
+          document.getElementById("next").textContent =
+            "次の地点へ";
+
+          document.getElementById("distance").textContent =
+            "距離を計算中";
+        }
+      }, turnDuration);
+    }
+
+    function finishRoute() {
+      cancelTurnTimer();
+      sendCommand("O");
+
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+
+      alreadyTriggered = false;
+
+      document.getElementById("next").textContent =
+        "ルート終了";
+
+      document.getElementById("distance").textContent =
+        "距離：---";
+    }
+
+    function cancelTurnTimer() {
+      if (turnTimerId !== null) {
+        window.clearTimeout(turnTimerId);
+        turnTimerId = null;
+      }
+    }
+
+    function resetRoute() {
+      cancelTurnTimer();
+
+      currentIndex = 0;
+      alreadyTriggered = false;
+
+      sendCommand("O");
+
+      document.getElementById("next").textContent =
+        "リセット完了";
+
+      document.getElementById("distance").textContent =
+        "距離：---";
+    }
+
+    function showError(error) {
+      const messages = {
+        1: "位置情報の使用が許可されていません",
+        2: "現在地を取得できません",
+        3: "現在地の取得がタイムアウトしました"
+      };
+
+      const message =
+        messages[error.code] || error.message;
+
+      document.getElementById("next").textContent =
+        "GPS取得失敗";
+
+      document.getElementById("sendStatus").textContent =
+        `GPSエラー：${message}`;
+
+      console.error("GPSエラー:", error);
+    }
+
+    // ==================================================
+    // 2地点間の距離
+    // ==================================================
+
     function getDistance(lat1, lng1, lat2, lng2) {
-      const R = 6371000;
+      const earthRadius = 6371000;
+
       const radLat1 = lat1 * Math.PI / 180;
       const radLat2 = lat2 * Math.PI / 180;
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLng = (lng2 - lng1) * Math.PI / 180;
 
       const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(radLat1) * Math.cos(radLat2) *
-        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(radLat1) *
+        Math.cos(radLat2) *
+        Math.sin(dLng / 2) ** 2;
 
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
+      const c =
+        2 * Math.atan2(
+          Math.sqrt(a),
+          Math.sqrt(1 - a)
+        );
+
+      return earthRadius * c;
     }
 
-    function resetRoute() {
-      currentIndex = 0;
+    // ==================================================
+    // Bluetooth
+    // ESP32側とUUIDを一致させる
+    // ==================================================
+
+    const DEVICE_NAME = "BikeNaviLED";
+
+    const SERVICE_UUID =
+      "12345678-1234-1234-1234-1234567890ab";
+
+    const CHARACTERISTIC_UUID =
+      "abcd1234-5678-90ab-cdef-1234567890ab";
+
+    let bleDevice = null;
+    let bleServer = null;
+    let commandCharacteristic = null;
+
+    async function connectBLE() {
+      try {
+        if (!navigator.bluetooth) {
+          document.getElementById("sendStatus").textContent =
+            "Web Bluetooth非対応";
+
+          alert(
+            "このブラウザはWeb Bluetoothに対応していません。Android版Chromeで試してください。"
+          );
+
+          return;
+        }
+
+        // すでに接続済みなら再接続しない
+        if (
+          bleDevice &&
+          bleDevice.gatt &&
+          bleDevice.gatt.connected &&
+          commandCharacteristic
+        ) {
+          document.getElementById("sendStatus").textContent =
+            "ESP32接続済み";
+
+          return;
+        }
+
+        document.getElementById("sendStatus").textContent =
+          "ESP32を検索中...";
+
+        bleDevice =
+          await navigator.bluetooth.requestDevice({
+            filters: [
+              {
+                name: DEVICE_NAME
+              }
+            ],
+            optionalServices: [
+              SERVICE_UUID
+            ]
+          });
+
+        bleDevice.addEventListener(
+          "gattserverdisconnected",
+          onDisconnected
+        );
+
+        document.getElementById("sendStatus").textContent =
+          "ESP32に接続中...";
+
+        bleServer =
+          await bleDevice.gatt.connect();
+
+        const service =
+          await bleServer.getPrimaryService(
+            SERVICE_UUID
+          );
+
+        commandCharacteristic =
+          await service.getCharacteristic(
+            CHARACTERISTIC_UUID
+          );
+
+        document.getElementById("sendStatus").textContent =
+          "ESP32接続済み";
+
+        console.log("BLE接続成功");
+      } catch (error) {
+        console.error("BLE接続エラー:", error);
+
+        commandCharacteristic = null;
+        bleServer = null;
+
+        document.getElementById("sendStatus").textContent =
+          `BLE接続失敗：${error.message}`;
+      }
+    }
+
+    async function sendCommand(command) {
+      const commandLabels = {
+        L: "左折 L",
+        R: "右折 R",
+        B: "ブレーキ B",
+        H: "ハザード H",
+        O: "消灯 O"
+      };
+
+      const label =
+        commandLabels[command] || command;
+
+      const isConnected =
+        bleDevice &&
+        bleDevice.gatt &&
+        bleDevice.gatt.connected &&
+        commandCharacteristic;
+
+      if (!isConnected) {
+        document.getElementById("sendStatus").textContent =
+          `未接続：送信予定 ${label}`;
+
+        console.log(
+          "未接続のため送信できません:",
+          command
+        );
+
+        return false;
+      }
+
+      try {
+        const data =
+          new TextEncoder().encode(command);
+
+        if (
+          typeof commandCharacteristic
+            .writeValueWithResponse === "function"
+        ) {
+          await commandCharacteristic
+            .writeValueWithResponse(data);
+
+        } else if (
+          typeof commandCharacteristic
+            .writeValueWithoutResponse === "function"
+        ) {
+          await commandCharacteristic
+            .writeValueWithoutResponse(data);
+
+        } else {
+          // 古いChrome向けの最終手段
+          await commandCharacteristic.writeValue(data);
+        }
+
+        document.getElementById("sendStatus").textContent =
+          `送信済み：${label}`;
+
+        console.log("送信済み:", command);
+
+        return true;
+      } catch (error) {
+        console.error("送信エラー:", error);
+
+        document.getElementById("sendStatus").textContent =
+          `送信失敗：${error.message}`;
+
+        return false;
+      }
+    }
+
+    function onDisconnected() {
+      commandCharacteristic = null;
+      bleServer = null;
+
+      cancelTurnTimer();
       alreadyTriggered = false;
 
-      document.getElementById("next").textContent = "リセット完了";
-      document.getElementById("distance").textContent = "距離：---";
-      document.getElementById("sendStatus").textContent = "未送信";
-
-      sendCommand("O");
-    }
-
-    function showError(error) {
-      alert("GPS取得に失敗しました：" + error.message);
-    }
-
-// =========================
-// Bluetooth本番送信部分
-// ESP32側のUUIDと必ず一致させる
-// =========================
-
-const DEVICE_NAME = "BikeNaviLED";
-const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
-const CHARACTERISTIC_UUID = "abcd1234-5678-90ab-cdef-1234567890ab";
-
-let bleDevice = null;
-let bleServer = null;
-let commandCharacteristic = null;
-
-async function connectBLE() {
-  try {
-    if (!navigator.bluetooth) {
-      alert("このブラウザはWeb Bluetoothに対応していません。AndroidのChromeで試してください。");
       document.getElementById("sendStatus").textContent =
-        "Bluetooth非対応：Android Chromeでテストしてください";
-      return;
+        "ESP32との接続が切断されました";
+
+      console.log("BLE切断");
     }
-
-    document.getElementById("sendStatus").textContent =
-      "ESP32を検索中...";
-
-    bleDevice = await navigator.bluetooth.requestDevice({
-      filters: [
-        { name: DEVICE_NAME }
-      ],
-      optionalServices: [SERVICE_UUID]
-    });
-
-    bleDevice.addEventListener("gattserverdisconnected", onDisconnected);
-
-    document.getElementById("sendStatus").textContent =
-      "ESP32に接続中...";
-
-    bleServer = await bleDevice.gatt.connect();
-
-    const service = await bleServer.getPrimaryService(SERVICE_UUID);
-    commandCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-
-    document.getElementById("sendStatus").textContent =
-      "ESP32接続済み";
-
-    console.log("BLE接続成功");
-
-  } catch (error) {
-    console.error(error);
-    document.getElementById("sendStatus").textContent =
-      "BLE接続失敗：" + error.message;
-    alert("BLE接続に失敗しました：" + error.message);
-  }
-}
-
-async function sendCommand(command) {
-  let label = "";
-
-  if (command === "L") {
-    label = "左折 L";
-  } else if (command === "R") {
-    label = "右折 R";
-  } else if (command === "O") {
-    label = "消灯 O";
-  } else if (command === "B") {
-    label = "ブレーキ B";
-  } else {
-    label = command;
-  }
-
-  // まだBluetooth接続していない場合
-  if (!commandCharacteristic) {
-    document.getElementById("sendStatus").textContent =
-      `未接続：送信予定 ${label}`;
-    console.log("未接続のため送信できません:", command);
-    return;
-  }
-
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(command);
-
-    // Chromeの対応状況に合わせて使い分け
-    if (commandCharacteristic.writeValueWithResponse) {
-      await commandCharacteristic.writeValueWithResponse(data);
-    } else {
-      await commandCharacteristic.writeValue(data);
-    }
-
-    document.getElementById("sendStatus").textContent =
-      `送信済み：${label}`;
-
-    console.log("送信済み:", command);
-
-  } catch (error) {
-    console.error(error);
-    document.getElementById("sendStatus").textContent =
-      "送信失敗：" + error.message;
-  }
-}
-
-function onDisconnected() {
-  commandCharacteristic = null;
-  bleServer = null;
-
-  document.getElementById("sendStatus").textContent =
-    "ESP32との接続が切断されました";
-
-  console.log("BLE切断");
-}
   </script>
 </body>
 </html>
