@@ -933,6 +933,36 @@
     let autoBrakeActive = false;
 
     // ==================================================
+// 加速度センサーによる減速検知
+//
+// スマホを縦向きに固定し、
+// スマホ上部を自転車の進行方向へ向ける想定
+// ==================================================
+
+// 前後方向に使う軸
+const MOTION_BRAKE_AXIS = "y";
+
+// 減速時の符号
+// 逆に反応する場合は 1 に変更
+const MOTION_BRAKE_SIGN = -1;
+
+// この減速度以上でブレーキ判定
+// 単位：m/s²
+const MOTION_DECEL_THRESHOLD = 1.8;
+
+// 段差の瞬間的な衝撃を除外するため、
+// この時間以上継続した場合だけ反応
+const MOTION_TRIGGER_DURATION = 100;
+
+// 加速度検知後、最低限ブレーキを維持する時間
+const MOTION_BRAKE_HOLD_TIME = 1200;
+
+let motionSensorActive = false;
+let filteredLongitudinalAccel = 0;
+let decelCandidateStart = null;
+let motionBrakeUntil = 0;
+
+    // ==================================================
     // BLE設定
     // ==================================================
 
@@ -1068,11 +1098,11 @@
       });
     }
 
-    // ==================================================
+  // ==================================================
     // GPS開始
     // ==================================================
 
-    function startGPS() {
+    async function startGPS() {
       if (!navigator.geolocation) {
         alert(
           "この端末ではGPSが使えません"
@@ -1108,6 +1138,8 @@
       previousPosition = null;
       smoothedSpeed = null;
       autoBrakeActive = false;
+
+      await startMotionSensor();
 
       document.getElementById(
         "speed"
@@ -1150,6 +1182,7 @@
       }
 
       cancelTurnTimer();
+      stopMotionSensor();
 
       alreadyTriggered = false;
       previousPosition = null;
@@ -1169,6 +1202,201 @@
       );
 
       setGpsStatus("停止中");
+    }
+
+    // ==================================================
+    // 加速度センサー開始
+    // ==================================================
+
+    async function startMotionSensor() {
+      if (!("DeviceMotionEvent" in window)) {
+        motionSensorActive = false;
+
+        document.getElementById(
+          "sendStatus"
+        ).textContent =
+          "加速度センサー非対応：低速判定のみ使用します";
+
+        return false;
+      }
+
+      try {
+        /*
+          iPhoneなどでは、ボタン操作中に
+          センサー利用の許可を求める必要がある。
+        */
+        if (
+          typeof DeviceMotionEvent.requestPermission ===
+          "function"
+        ) {
+          const permission =
+            await DeviceMotionEvent.requestPermission();
+
+          if (permission !== "granted") {
+            motionSensorActive = false;
+
+            document.getElementById(
+              "sendStatus"
+            ).textContent =
+              "加速度センサーが許可されていません";
+
+            return false;
+          }
+        }
+
+        /*
+          GPSを再開した場合にイベントが重複しないよう、
+          一度解除してから登録する。
+        */
+        window.removeEventListener(
+          "devicemotion",
+          handleDeviceMotion
+        );
+
+        resetMotionState();
+
+        window.addEventListener(
+          "devicemotion",
+          handleDeviceMotion
+        );
+
+        motionSensorActive = true;
+
+        document.getElementById(
+          "sendStatus"
+        ).textContent =
+          "加速度センサー準備完了";
+
+        return true;
+
+      } catch (error) {
+        motionSensorActive = false;
+
+        console.error(
+          "加速度センサー開始エラー:",
+          error
+        );
+
+        document.getElementById(
+          "sendStatus"
+        ).textContent =
+          `加速度センサー開始失敗：${error.message}`;
+
+        return false;
+      }
+    }
+
+    // ==================================================
+    // 加速度センサー停止
+    // ==================================================
+
+    function stopMotionSensor() {
+      window.removeEventListener(
+        "devicemotion",
+        handleDeviceMotion
+      );
+
+      motionSensorActive = false;
+      resetMotionState();
+    }
+
+    // ==================================================
+    // 加速度センサー状態初期化
+    // ==================================================
+
+    function resetMotionState() {
+      filteredLongitudinalAccel = 0;
+      decelCandidateStart = null;
+      motionBrakeUntil = 0;
+    }
+
+    // ==================================================
+    // 加速度データ受信
+    // ==================================================
+
+    function handleDeviceMotion(event) {
+      if (
+        !motionSensorActive ||
+        watchId === null
+      ) {
+        return;
+      }
+
+      /*
+        accelerationは重力を除いた加速度。
+        端末によって取得できない場合は、
+        GPS速度による低速判定だけを使用する。
+      */
+      const acceleration =
+        event.acceleration;
+
+      if (
+        !acceleration ||
+        !Number.isFinite(
+          acceleration[MOTION_BRAKE_AXIS]
+        )
+      ) {
+        return;
+      }
+
+      /*
+        スマホの前後方向の加速度を取得し、
+        減速時に正の数になるよう符号を調整する。
+      */
+      const rawLongitudinalAccel =
+        acceleration[MOTION_BRAKE_AXIS] *
+        MOTION_BRAKE_SIGN;
+
+      /*
+        段差や細かな振動によるノイズを抑える。
+      */
+      filteredLongitudinalAccel =
+        filteredLongitudinalAccel * 0.7 +
+        rawLongitudinalAccel * 0.3;
+
+      const now =
+        performance.now();
+
+      /*
+        低速時にスマホを触っただけで反応しないよう、
+        3km/h以上の走行中だけ減速検知を行う。
+      */
+      const movingFastEnough =
+        smoothedSpeed !== null &&
+        smoothedSpeed >= BRAKE_OFF_SPEED;
+
+      const decelerating =
+        movingFastEnough &&
+        filteredLongitudinalAccel >=
+          MOTION_DECEL_THRESHOLD;
+
+      if (decelerating) {
+        if (decelCandidateStart === null) {
+          decelCandidateStart = now;
+        }
+
+        const continuedTime =
+          now - decelCandidateStart;
+
+        if (
+          continuedTime >=
+          MOTION_TRIGGER_DURATION
+        ) {
+          /*
+            減速が続くたびに保持終了時刻を延長する。
+          */
+          motionBrakeUntil =
+            Date.now() +
+            MOTION_BRAKE_HOLD_TIME;
+
+          void activateAutoBrake(
+            `減速検知：${filteredLongitudinalAccel.toFixed(1)}m/s²`
+          );
+        }
+
+      } else {
+        decelCandidateStart = null;
+      }
     }
 
     // ==================================================
@@ -1318,7 +1546,7 @@
 
       if (autoBrakeActive) {
         setGpsStatus(
-          "停止・ブレーキ作動中"
+          "ブレーキ作動中"
         );
 
       } else {
@@ -1327,61 +1555,96 @@
     }
 
     // ==================================================
-    // 自動ブレーキ
+    // ブレーキ作動
+    // ==================================================
+
+    async function activateAutoBrake(message) {
+      if (!autoBrakeActive) {
+        autoBrakeActive = true;
+        await sendCommand("B");
+      }
+
+      setGpsStatus(
+        "減速・ブレーキ作動中"
+      );
+
+      document.getElementById(
+        "sendStatus"
+      ).textContent = message;
+    }
+
+    // ==================================================
+    // ブレーキ解除
+    // ==================================================
+
+    async function releaseAutoBrake(message) {
+      if (!autoBrakeActive) {
+        return;
+      }
+
+      autoBrakeActive = false;
+
+      /*
+        右左折案内中なら、その案内へ戻す。
+        通常走行中なら消灯する。
+      */
+      if (
+        alreadyTriggered &&
+        currentIndex < routePoints.length
+      ) {
+        await sendCommand(
+          routePoints[currentIndex].command
+        );
+
+      } else {
+        await sendCommand("O");
+      }
+
+      setGpsStatus("測位中");
+
+      document.getElementById(
+        "sendStatus"
+      ).textContent = message;
+    }
+
+    // ==================================================
+    // GPS速度による自動ブレーキ補助
     // ==================================================
 
     async function updateAutoBrake(
       speedKmh
     ) {
-      // GPSが停止している場合は判定しない
       if (watchId === null) {
         return;
       }
 
-      // 2km/h以下でブレーキを作動
+      /*
+        加速度センサーが反応しなかった場合でも、
+        2km/h以下になれば停止ブレーキを点灯する。
+      */
       if (
         !autoBrakeActive &&
         speedKmh <= BRAKE_ON_SPEED
       ) {
-        autoBrakeActive = true;
-
-        await sendCommand("B");
-
-        document.getElementById(
-          "sendStatus"
-        ).textContent =
-          `自動ブレーキ作動中：${speedKmh.toFixed(1)}km/h`;
+        await activateAutoBrake(
+          `低速ブレーキ作動中：${speedKmh.toFixed(1)}km/h`
+        );
 
         return;
       }
 
-      // 3km/h以上でブレーキを解除
+      /*
+        加速度で点灯した場合は最低保持時間を守る。
+        3km/h以上かつ保持時間終了後に解除する。
+      */
       if (
         autoBrakeActive &&
-        speedKmh >= BRAKE_OFF_SPEED
+        speedKmh >= BRAKE_OFF_SPEED &&
+        Date.now() >= motionBrakeUntil
       ) {
-        autoBrakeActive = false;
-
-        /*
-          右左折案内中ならウインカーへ復帰。
-          通常走行中なら消灯する。
-        */
-        if (
-          alreadyTriggered &&
-          currentIndex < routePoints.length
-        ) {
-          await sendCommand(
-            routePoints[currentIndex].command
-          );
-
-        } else {
-          await sendCommand("O");
-        }
-
-        document.getElementById(
-          "sendStatus"
-        ).textContent =
-          `自動ブレーキ解除：${speedKmh.toFixed(1)}km/h`;
+        await releaseAutoBrake(
+          `自動ブレーキ解除：${speedKmh.toFixed(1)}km/h`
+        );
       }
     }
 
@@ -1467,6 +1730,7 @@
 
     function finishRoute() {
       cancelTurnTimer();
+      stopMotionSensor();
 
       autoBrakeActive = false;
       alreadyTriggered = false;
@@ -1519,6 +1783,7 @@
       previousPosition = null;
       smoothedSpeed = null;
       autoBrakeActive = false;
+      resetMotionState();
 
       document.getElementById(
         "speed"
@@ -1561,6 +1826,17 @@
       const message =
         messages[error.code] ||
         error.message;
+
+      cancelTurnTimer();
+      stopMotionSensor();
+
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(
+          watchId
+        );
+
+        watchId = null;
+      }
 
       autoBrakeActive = false;
 
